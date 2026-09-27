@@ -60,7 +60,7 @@ async def select_category(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         ]
     ]
 
-    await query.edit_message_text(text=f"Расход записан! \n Сумма: { amount } \n Категория: { category }")
+    await query.edit_message_text(text=f"Расход записан! \n Сумма: { amount } \n Категория: { category }", reply_markup=InlineKeyboardMarkup(keyboard))
 
     context.user_data.clear()
 
@@ -71,15 +71,26 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     context.user_data.clear()
     return ConversationHandler.END
 
+async def menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    text = (
+        "<b>Доступные команды:</b>\n\n"
+        "/start — Начать запись нового расхода\n"
+        "/menu — Показать это меню\n"
+        "/stats — Посмотреть статистику трат\n"
+        "/graph — Посмотреть график трат\n"
+        "/cancel — Отменить текущее действие\n"
+    )
+    await update.message.reply_text(text, parse_mode="HTML")
+
 async def handle_action_btns(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     await query.answer()
 
-    action = query.data()
+    action = query.data
 
     if action == "new_expense":
         await query.edit_message_text("Введите сумму расхода:")
-        await update.message.reply_text("Используйте команду /start для ввода еще одного расхода.")
+        await query.edit_message_text("Используйте команду /start для ввода еще одного расхода.")
     elif action == "show_menu":
         text = (
                 "<b>Доступные команды:</b>\n\n"
@@ -90,7 +101,7 @@ async def handle_action_btns(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 "/cancel — Отменить текущее действие\n"
             )
         
-        await update.message.reply_text(text, parse_mode="HTML")
+        await query.edit_message_text(text, parse_mode="HTML")
 
 def main() -> None:
     create_database()
@@ -107,6 +118,7 @@ def main() -> None:
 
     app.add_handler(conversation_handler)
     app.add_handler(CallbackQueryHandler(handle_action_btns, pattern="^(new_expense|show_menu)$"))
+    app.add_handler(CommandHandler('menu', menu))
 
     app.run_polling(allowed_updates=Update.ALL_TYPES)
 
