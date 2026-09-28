@@ -3,5 +3,4 @@ expense_database.db
 __pycache__/
 *.py[cod]
 *$py.class
-config.py
 .env
