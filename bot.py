@@ -73,21 +73,7 @@ async def select_category(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
     return ConversationHandler.END
 
-async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    await update.message.reply_text("Действие отменено")
-    context.user_data.clear()
-    return ConversationHandler.END
-
-async def menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    text = (
-        "<b>Доступные команды:</b>\n\n"
-        "/start — Начать запись нового расхода\n"
-        "/menu — Показать это меню\n"
-        "/stats — Посмотреть статистику трат\n"
-        "/graph — Посмотреть график трат\n"
-        "/cancel — Отменить текущее действие\n"
-    )
-    await update.message.reply_text(text, parse_mode="HTML")
+######
 
 async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = update.effective_user.id
@@ -120,6 +106,40 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     await update.message.reply_text(text, parse_mode="HTML", reply_markup=reply_markup)
 
+async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    await update.message.reply_text("Действие отменено")
+    context.user_data.clear()
+    return ConversationHandler.END
+
+######
+
+def get_menu_keyboard() -> InlineKeyboardMarkup:
+    keyboard = [
+        [
+            InlineKeyboardButton("➕ Новый расход", callback_data="cmd_start"),
+            InlineKeyboardButton("📊 Статистика", callback_data="cmd_stats"),
+        ],
+        [
+            InlineKeyboardButton("📈 График", callback_data="cmd_graph"),
+            InlineKeyboardButton("❌ Отмена", callback_data="cmd_cancel"),
+        ]
+    ]
+
+    return InlineKeyboardMarkup(keyboard)
+
+def get_menu_text() -> str:
+    return (
+        "<b> Главное меню</b>\n\n"
+        "Выберите действие:"
+    )
+
+async def menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await update.message.reply_text(
+        get_menu_text(),
+        parse_mode="HTML",
+        reply_markup=get_menu_keyboard()
+    )
+
 async def handle_action_btns(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     await query.answer()
@@ -127,16 +147,21 @@ async def handle_action_btns(update: Update, context: ContextTypes.DEFAULT_TYPE)
     action = query.data
 
     if action == "show_menu":
-        text = (
-                "<b>Доступные команды:</b>\n\n"
-                "/start — Начать запись нового расхода\n"
-                "/menu — Показать это меню\n"
-                "/stats — Посмотреть статистику трат\n"
-                "/graph — Посмотреть график трат\n"
-                "/cancel — Отменить текущее действие\n"
-            )
-        
-        await query.edit_message_text(text, parse_mode="HTML")
+        await query.edit_message_text(
+            get_menu_text(), 
+            parse_mode="HTML",
+            reply_markup=get_menu_keyboard()
+        )
+    elif action == "cmd_start":
+        await restart_expense(update, context)
+    elif action == "cmd_stats":
+        await stats(update, context)
+    elif action == "cmd_graph":
+        await query.edit_message_text("Пока недоступно")
+    elif action == "cmd_cancel":
+        await cancel(update, context)
+
+######
 
 def main() -> None:
     create_database()
