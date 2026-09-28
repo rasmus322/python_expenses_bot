@@ -18,6 +18,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     await update.message.reply_text("Привет! Это бот для подсчета расходов. Введите сумму расхода:")
     return AMOUNT
 
+async def restart_expense(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+
+    await query.edit_message_text("➕ Введите сумму нового расхода:")
+    return AMOUNT
+
 async def get_amount(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     text = update.message.text
 
@@ -88,10 +95,7 @@ async def handle_action_btns(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     action = query.data
 
-    if action == "new_expense":
-        await query.edit_message_text("Введите сумму расхода:")
-        await query.edit_message_text("Используйте команду /start для ввода еще одного расхода.")
-    elif action == "show_menu":
+    if action == "show_menu":
         text = (
                 "<b>Доступные команды:</b>\n\n"
                 "/start — Начать запись нового расхода\n"
@@ -108,7 +112,10 @@ def main() -> None:
     app = Application.builder().token(BOT_TOKEN).build()
 
     conversation_handler = ConversationHandler(
-        entry_points=[CommandHandler('start', start)],
+        entry_points=[
+            CommandHandler('start', start),
+            CallbackQueryHandler(restart_expense, pattern="^new_expense$")
+        ],
         states={
             AMOUNT: [ MessageHandler(filters.TEXT & ~filters.COMMAND, get_amount) ],
             CATEGORY: [ CallbackQueryHandler(select_category) ]
