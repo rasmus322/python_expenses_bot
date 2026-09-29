@@ -6,38 +6,42 @@ from telegram.ext import (
 )
 from config import BOT_TOKEN
 from database import create_database, add_expense, get_total_by_category
-from datetime import date
+from utils import (
+    send_message,
+    get_main_menu_keyboard,
+    get_back_to_menu_keyboard,
+    get_categories_keyboard
+)
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
 AMOUNT, CATEGORY = range(2)
-
 CATEGORIES = ["Кафе", "Продукты", "Транспорт", "Развлечения", "Вредные привычки"]
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    await update.message.reply_text("Привет! Это бот для подсчета расходов. Введите сумму расхода:")
+    await send_message(update, "Привет! Это бот для подсчета расходов. Введите сумму расхода:")
     return AMOUNT
 
 async def restart_expense(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    query = update.callback_query
-    await query.answer()
-
-    await query.edit_message_text("➕ Введите сумму нового расхода:")
+    await send_message(
+        update,
+        "➕ Введите сумму нового расхода:",
+        reply_markup=get_back_to_menu_keyboard()
+    )
     return AMOUNT
 
 async def get_amount(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    text = update.message.text
-
     try:
-        amount = float(text.replace(',', '.'))
+        amount = float(update.message.text.replace(',', '.'))
         if amount <= 0:
             raise ValueError
         
         context.user_data["amount"] = amount
 
-        keyboard = [[InlineKeyboardButton(category, callback_data=category)] for category in CATEGORIES]
-
-        await update.message.reply_text(f"Сумма: { amount }. Выберите категорию:", reply_markup=InlineKeyboardMarkup(keyboard))
+        await update.message.reply_text(
+            f"Сумма: { amount }. Выберите категорию:", 
+            reply_markup=get_categories_keyboard(CATEGORIES)
+        )
 
         return CATEGORY
     except ValueError:
@@ -45,65 +49,46 @@ async def get_amount(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         return AMOUNT
 
 async def select_category(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    query = update.callback_query
-    await query.answer()
-
-    category = query.data
+    category = update.callback_query.data
     amount = context.user_data.get('amount')
     user_id = update.effective_user.id
 
     if not amount:
-        await query.edit_message_text("Произошла ошибка. Начните с команды /start")
+        await send_message(update, "Произошла ошибка. Начните с команды /start")
         return ConversationHandler.END
 
     add_expense(user_id, amount, category)
-
-    keyboard = [
-        [
-            InlineKeyboardButton("➕ Новый расход", callback_data="new_expense")
-        ],
-        [
-            InlineKeyboardButton("📋 Меню", callback_data="show_menu")
-        ]
-    ]
-
-    await query.edit_message_text(text=f"Расход записан! \n Сумма: { amount } \n Категория: { category }", reply_markup=InlineKeyboardMarkup(keyboard))
-
     context.user_data.clear()
 
-    return ConversationHandler.END
-
-async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    await update.message.reply_text("Действие отменено")
-    context.user_data.clear()
-    return ConversationHandler.END
-
-async def menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     text = (
-        "<b>Доступные команды:</b>\n\n"
-        "/start — Начать запись нового расхода\n"
-        "/menu — Показать это меню\n"
-        "/stats — Посмотреть статистику трат\n"
-        "/graph — Посмотреть график трат\n"
-        "/cancel — Отменить текущее действие\n"
+        "Расход записан! \n" 
+        f"Сумма: { amount } \n" 
+        f"Категория: { category }"
     )
-    await update.message.reply_text(text, parse_mode="HTML")
+    
+    await send_message(
+        update,
+        text,
+        reply_markup=get_main_menu_keyboard()
+    )
+
+
+    return ConversationHandler.END
+
+######
 
 async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    user_id = update.effective_user.id
-    stats_dict = get_total_by_category(user_id)
-
-    keyboard = [
-        [InlineKeyboardButton("➕ Новый расход", callback_data="new_expense")],
-        [InlineKeyboardButton("📋 Открыть меню", callback_data="show_menu")]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
+    stats_dict = get_total_by_category(update.effective_user.id)
 
     if not stats_dict:
-        await update.message.reply_text(
-            "У вас нет записанных расходов! \n " \
-            "Ипользуйте /start чтобы записать расход.",
-            reply_markup=reply_markup
+        text = (
+            "У вас нет записанных расходов! \n "
+            "Ипользуйте /start чтобы записать расход."
+        )
+        await send_message(
+            update,
+            text,
+            reply_markup=get_main_menu_keyboard
         )
         return
 
@@ -118,25 +103,43 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     text += f"\n <b>Итого потрачено:</b> {total_amount:.2f}"
 
-    await update.message.reply_text(text, parse_mode="HTML", reply_markup=reply_markup)
+    await send_message(update, text, reply_markup=get_back_to_menu_keyboard())
+
+async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    context.user_data.clear()
+
+    await send_message(
+        update,
+        "Действие отменено",
+        reply_markup=get_main_menu_keyboard()
+    )
+    
+    return ConversationHandler.END
+
+######
+
+async def menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await send_message(
+        update,
+        "<b>Главное меню</b> \n \n Выберите действие:",
+        reply_markup=get_main_menu_keyboard()
+    )
 
 async def handle_action_btns(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    query = update.callback_query
-    await query.answer()
-
-    action = query.data
+    action = update.callback_query.data
 
     if action == "show_menu":
-        text = (
-                "<b>Доступные команды:</b>\n\n"
-                "/start — Начать запись нового расхода\n"
-                "/menu — Показать это меню\n"
-                "/stats — Посмотреть статистику трат\n"
-                "/graph — Посмотреть график трат\n"
-                "/cancel — Отменить текущее действие\n"
-            )
-        
-        await query.edit_message_text(text, parse_mode="HTML")
+        await menu(update, context)
+    elif action == "cmd_start":
+        await restart_expense(update, context)
+    elif action == "cmd_stats":
+        await stats(update, context)
+    elif action == "cmd_graph":
+        await send_message(update, "Пока недоступно", reply_markup=get_back_to_menu_keyboard())
+    elif action == "cmd_cancel":
+        await cancel(update, context)
+
+######
 
 def main() -> None:
     create_database()
@@ -145,7 +148,8 @@ def main() -> None:
     conversation_handler = ConversationHandler(
         entry_points=[
             CommandHandler('start', start),
-            CallbackQueryHandler(restart_expense, pattern="^new_expense$")
+            CallbackQueryHandler(restart_expense, pattern="^new_expense$"),
+            CallbackQueryHandler(restart_expense, pattern="^cmd_start$")
         ],
         states={
             AMOUNT: [ MessageHandler(filters.TEXT & ~filters.COMMAND, get_amount) ],
@@ -155,7 +159,10 @@ def main() -> None:
     )
 
     app.add_handler(conversation_handler)
-    app.add_handler(CallbackQueryHandler(handle_action_btns, pattern="^(new_expense|show_menu)$"))
+    app.add_handler(CallbackQueryHandler(
+        handle_action_btns, 
+        pattern="^(show_menu|cmd_start|cmd_stats|cmd_graph|cmd_cancel)$"
+    ))
     app.add_handler(CommandHandler('menu', menu))
     app.add_handler(CommandHandler('stats', stats))
 
