@@ -67,3 +67,13 @@ def get_expenses_stats(user_id: int) -> tuple[dict, date, date] | None:
         return stats, min_date, max_date
     finally:
         session.close()
+
+def clear_user_expenses(user_id: int) -> int:
+    session = start_session()
+
+    try:
+        deleted_expenses = session.query(Expense).filter(Expense.user_id == user_id).delete()
+        session.commit()
+        return deleted_expenses
+    finally:
+        session.close()
