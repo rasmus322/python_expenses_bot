@@ -16,9 +16,9 @@ def create_expenses_pie_chart(stats: dict) -> io.BytesIO:
     pyplot.rcParams['font.sans-serif'] = ['DejaVu Sans', 'Arial', 'sans-serif']
     pyplot.rcParams['axes.unicode_minus'] = False
 
-    fig, ax = pyplot.subplots(figsize=(8,8))
+    fig, ax = pyplot.subplots(figsize=(10,8))
 
-    wedges, texts, autotexts = ax.pie(
+    _, _, autotexts = ax.pie(
         amounts,
         labels=categories,
         autopct='%1.1f%%',
@@ -29,9 +29,17 @@ def create_expenses_pie_chart(stats: dict) -> io.BytesIO:
     )
 
     pyplot.setp(autotexts, size=11, weight="bold", color="white")
-    pyplot.setp(texts, size=12)
 
     ax.set_title("График расходов", fontsize=16, fontweight='bold', pad=20)
+
+    ax.legend(
+        categories,
+        loc='center left',
+        bbox_to_anchor=(1, 0.5),
+        fontsize=12,
+        frameon=True,
+        shadow=True
+    )
 
     buf = io.BytesIO()
     pyplot.savefig(buf, format='png', bbox_inches='tight', dpi=120)
