@@ -5,7 +5,7 @@ from telegram.ext import (
     ConversationHandler, filters, ContextTypes
 )
 from config import BOT_TOKEN
-from database import create_database, add_expense, get_total_by_category
+from database import create_database, add_expense, get_total_by_category, get_expenses_stats
 from utils import (
     send_message,
     get_main_menu_keyboard,
@@ -107,9 +107,9 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await send_message(update, text, reply_markup=get_back_to_menu_keyboard())
 
 async def graph(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    stats_dict = get_total_by_category(update.effective_user.id)
+    result = get_expenses_stats(update.effective_user.id)
 
-    if not stats_dict:
+    if result is None:
         await send_message(
             update,
             "У вас пока нет записанных расходов. \n Создайте новый расход",
@@ -117,7 +117,9 @@ async def graph(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
         return
 
-    chart_buf = create_expenses_pie_chart(stats_dict)
+    stats_dict, min_date, max_date = result
+
+    chart_buf = create_expenses_pie_chart(stats_dict, min_date, max_date)
 
     await update.effective_message.reply_photo(
         photo=chart_buf,
