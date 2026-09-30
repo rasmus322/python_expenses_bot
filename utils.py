@@ -1,5 +1,6 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
+from telegram.error import BadRequest
 
 async def send_message(
         update: Update, 
@@ -7,9 +8,25 @@ async def send_message(
         reply_markup: InlineKeyboardMarkup = None, 
         parse_mode: str = "HTML") -> None:
     if update.callback_query:
-        await update.callback_query.edit_message_text(text, parse_mode=parse_mode, reply_markup=reply_markup)
+        try:
+            await update.effective_message.edit_text(
+                text, 
+                parse_mode=parse_mode, 
+                reply_markup=reply_markup
+            )
+        except BadRequest:
+            await update.effective_message.reply_text(
+                text,
+                parse_mode=parse_mode,
+                reply_markup=reply_markup
+            )
+            
     elif update.message:
-        await update.message.reply_text(text, parse_mode=parse_mode, reply_markup=reply_markup)
+        await update.effective_message.reply_text(
+            text, 
+            parse_mode=parse_mode, 
+            reply_markup=reply_markup
+        )
 
 def build_keyboard(btns_data: list[tuple[str, str]], n_cols: int = 2) -> InlineKeyboardMarkup:
     keyboard = []
