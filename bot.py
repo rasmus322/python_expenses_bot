@@ -5,6 +5,7 @@ from telegram.ext import (
     ConversationHandler, filters, ContextTypes
 )
 from config import BOT_TOKEN
+from constants import CATEGORIES
 from database import (
     create_database, 
     add_expense, 
@@ -26,22 +27,6 @@ from graphing import create_bar_chart, create_pie_chart
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
 AMOUNT, CATEGORY_PAGE, CATEGORY_TEXT = range(3)
-CATEGORIES = [
-    "Продукты",
-    "Транспорт", 
-    "Развлечения",
-    "Техника",
-    "Хобби",
-    "Здоровье",
-    "Вредные привычки",
-    "Одежда",
-    "Кафе",
-    "Красота",
-    "Путешествия",
-    "Дом и быт",
-    "Постоянные расходы",
-    "Прочее"
-]
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     await send_message(update, "Привет! Это бот для подсчета расходов. Введите сумму расхода:")
@@ -63,42 +48,16 @@ async def get_amount(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         
         context.user_data["amount"] = amount
 
-        await update.message.reply_text(
+        await send_message(
+            update,
             f"Сумма: { amount }. Выберите категорию:", 
             reply_markup=get_categories_keyboard(0, CATEGORIES)
         )
 
         return CATEGORY_PAGE
     except ValueError:
-        await update.message.reply_text(f"Введите корректное положительное число. Попробуйте еще раз.")
+        await send_message(update, "Введите корректное положительное число. Попробуйте еще раз.")
         return AMOUNT
-
-async def select_category(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    category = update.callback_query.data
-    amount = context.user_data.get('amount')
-    user_id = update.effective_user.id
-
-    if not amount:
-        await send_message(update, "Произошла ошибка. Начните с команды /start")
-        return ConversationHandler.END
-
-    add_expense(user_id, amount, category)
-    context.user_data.clear()
-
-    text = (
-        "Расход записан! \n" 
-        f"Сумма: { amount } \n" 
-        f"Категория: { category }"
-    )
-    
-    await send_message(
-        update,
-        text,
-        reply_markup=get_main_menu_keyboard()
-    )
-
-
-    return ConversationHandler.END
 
 async def save_expense_and_show_menu(
         update: Update, 

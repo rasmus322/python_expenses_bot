@@ -26,14 +26,6 @@ def add_expense(user_id: int, amount: float, category: str) -> None:
     finally:
         session.close()
 
-def get_expenses(user_id: int) -> list[Expense]:
-    session = start_session()
-
-    try:
-        return session.query(Expense).filter(Expense.user_id == user_id).all()
-    finally:
-        session.close()
-
 def get_total_by_category(user_id: int) -> dict:
     session = start_session()
 
