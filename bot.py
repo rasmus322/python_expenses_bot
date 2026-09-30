@@ -12,6 +12,7 @@ from utils import (
     get_back_to_menu_keyboard,
     get_categories_keyboard
 )
+from graphing import create_expenses_pie_chart
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
@@ -105,6 +106,28 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     await send_message(update, text, reply_markup=get_back_to_menu_keyboard())
 
+async def graph(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    stats_dict = get_total_by_category(update.effective_user.id)
+
+    if not stats_dict:
+        await send_message(
+            update,
+            "У вас пока нет записанных расходов. \n Создайте новый расход",
+            reply_markup=get_main_menu_keyboard()
+        )
+        return
+
+    chart_buf = create_expenses_pie_chart(stats_dict)
+
+    await update.effective_message.reply_photo(
+        photo=chart_buf,
+        caption="📊 <b>График ваших расходов по категориям</b>",
+        parse_mode="HTML",
+        reply_markup=get_back_to_menu_keyboard()
+    )
+
+    chart_buf.close()
+
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     context.user_data.clear()
 
@@ -135,7 +158,7 @@ async def handle_action_btns(update: Update, context: ContextTypes.DEFAULT_TYPE)
     elif action == "cmd_stats":
         await stats(update, context)
     elif action == "cmd_graph":
-        await send_message(update, "Пока недоступно", reply_markup=get_back_to_menu_keyboard())
+        await graph(update, context)
     elif action == "cmd_cancel":
         await cancel(update, context)
 
