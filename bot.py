@@ -10,9 +10,11 @@ from utils import (
     send_message,
     get_main_menu_keyboard,
     get_back_to_menu_keyboard,
-    get_categories_keyboard
+    get_categories_keyboard,
+    get_graph_type_keyboard,
+    get_graph_action_keyboard
 )
-from graphing import create_expenses_pie_chart
+from graphing import create_bar_chart, create_pie_chart
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
@@ -117,18 +119,13 @@ async def graph(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
         return
 
-    stats_dict, min_date, max_date = result
+    context.user_data['chart_stats'] = result
 
-    chart_buf = create_expenses_pie_chart(stats_dict, min_date, max_date)
-
-    await update.effective_message.reply_photo(
-        photo=chart_buf,
-        caption="📊 <b>График ваших расходов по категориям</b>",
-        parse_mode="HTML",
-        reply_markup=get_back_to_menu_keyboard()
+    await send_message(
+        update,
+        "📊 Выберите тип графика:",
+        reply_markup=get_graph_type_keyboard()
     )
-
-    chart_buf.close()
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     context.user_data.clear()
@@ -149,6 +146,54 @@ async def menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "<b>Главное меню</b> \n \n Выберите действие:",
         reply_markup=get_main_menu_keyboard()
     )
+
+async def handle_graph_select(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    stats_data = context.user_data.get('chart_stats')
+
+    if not stats_data:
+        await send_message(
+            update,
+            "Данные не актуальны. Запросите график заново",
+            reply_markup=get_main_menu_keyboard()
+        )
+        return
+    
+    stats_dict, min_date, max_date = stats_data
+    query = update.callback_query
+
+    await query.answer()
+
+    if query.data == "graph_pie":
+        chart_buf = create_pie_chart(stats_dict, min_date, max_date)
+        caption = "📀 Распределение расходов по категориям"
+    elif query.data == "graph_bar":
+        chart_buf = create_bar_chart(stats_dict, min_date, max_date)
+        caption = "📊 Сравнение сумм по категориям"
+    else:
+        return
+
+    await update.effective_message.reply_photo(
+        photo=chart_buf,
+        caption=caption,
+        reply_markup=get_graph_action_keyboard()
+    )
+
+    chart_buf.close()
+
+async def handle_graph_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    action = query.data
+
+    await query.answer()
+
+    if action == "graph_choose":
+        await send_message(
+            update,
+            "📊 Выберите тип графика:",
+            reply_markup=get_graph_type_keyboard()
+        )
+    elif action == "show_menu":
+        await menu(update, context)
 
 async def handle_action_btns(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     action = update.callback_query.data
@@ -184,12 +229,25 @@ def main() -> None:
     )
 
     app.add_handler(conversation_handler)
+
     app.add_handler(CallbackQueryHandler(
         handle_action_btns, 
         pattern="^(show_menu|cmd_start|cmd_stats|cmd_graph|cmd_cancel)$"
     ))
+
+    app.add_handler(CallbackQueryHandler(
+        handle_graph_select,
+        pattern="^graph_(pie|bar)$"
+    ))
+
+    app.add_handler(CallbackQueryHandler(
+        handle_graph_action,
+        pattern="^(graph_choose|show_menu)$"
+    ))
+
     app.add_handler(CommandHandler('menu', menu))
     app.add_handler(CommandHandler('stats', stats))
+    app.add_handler(CommandHandler('graph', graph))
 
     app.run_polling(allowed_updates=Update.ALL_TYPES)
 

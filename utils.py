@@ -57,3 +57,19 @@ def get_categories_keyboard(categories: list[str]) -> InlineKeyboardMarkup:
     btns = [(category, category) for category in categories]
 
     return build_keyboard(btns)
+
+def get_graph_type_keyboard() -> InlineKeyboardMarkup:
+    btns = [
+        ("📀 Диск", "graph_pie"),
+        ("📊 Столбцы", "graph_bar")
+    ]
+
+    return build_keyboard(btns)
+
+def get_graph_action_keyboard() -> InlineKeyboardMarkup:
+    btns = [
+        ("🔄 Другой график", "graph_choose"),
+        ("📋 В меню", "show_menu")
+    ]
+
+    return build_keyboard(btns)
