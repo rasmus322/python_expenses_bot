@@ -45,3 +45,25 @@ def get_total_by_category(user_id: int) -> dict:
         return stats
     finally:
         session.close()
+
+def get_expenses_stats(user_id: int) -> tuple[dict, date, date] | None:
+    session = start_session()
+
+    try:
+        expenses = session.query(Expense).filter(Expense.user_id == user_id).all()
+
+        if not expenses:
+            return None
+
+        stats = {}
+
+        for expense in expenses:
+            stats[expense.category] = stats.get(expense.category, 0) + expense.amount
+
+        all_dates = [expense.date for expense in expenses if expense.date is not None]
+        min_date = min(all_dates)
+        max_date = max(all_dates)
+
+        return stats, min_date, max_date
+    finally:
+        session.close()
