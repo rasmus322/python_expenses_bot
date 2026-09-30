@@ -18,8 +18,23 @@ from graphing import create_bar_chart, create_pie_chart
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
-AMOUNT, CATEGORY = range(2)
-CATEGORIES = ["Кафе", "Продукты", "Транспорт", "Развлечения", "Вредные привычки"]
+AMOUNT, CATEGORY_PAGE, CATEGORY_TEXT = range(3)
+CATEGORIES = [
+    "Продукты",
+    "Транспорт", 
+    "Развлечения",
+    "Техника",
+    "Хобби",
+    "Здоровье",
+    "Вредные привычки",
+    "Одежда",
+    "Кафе",
+    "Красота",
+    "Путешествия",
+    "Дом и быт",
+    "Постоянные расходы",
+    "Прочее"
+]
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     await send_message(update, "Привет! Это бот для подсчета расходов. Введите сумму расхода:")
@@ -43,10 +58,10 @@ async def get_amount(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
         await update.message.reply_text(
             f"Сумма: { amount }. Выберите категорию:", 
-            reply_markup=get_categories_keyboard(CATEGORIES)
+            reply_markup=get_categories_keyboard(0, CATEGORIES)
         )
 
-        return CATEGORY
+        return CATEGORY_PAGE
     except ValueError:
         await update.message.reply_text(f"Введите корректное положительное число. Попробуйте еще раз.")
         return AMOUNT
@@ -78,6 +93,21 @@ async def select_category(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
     return ConversationHandler.END
 
+async def save_expense_and_show_menu(
+        update: Update, 
+        context: ContextTypes.DEFAULT_TYPE, 
+        category: str) -> int:
+    amount = context.user_data.get('amount')
+    user_id = update.effective_user.id
+
+    add_expense(user_id, amount, category)
+    context.user_data.clear()
+
+    text = f"✅ Расход записан! \n Сумма: { amount } \n Категория: { category }"
+    await send_message(update, text, reply_markup=get_main_menu_keyboard())
+
+    return ConversationHandler.END
+
 ######
 
 async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -91,7 +121,7 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await send_message(
             update,
             text,
-            reply_markup=get_main_menu_keyboard
+            reply_markup=get_main_menu_keyboard()
         )
         return
 
@@ -195,6 +225,51 @@ async def handle_graph_action(update: Update, context: ContextTypes.DEFAULT_TYPE
     elif action == "show_menu":
         await menu(update, context)
 
+async def handle_category_pagination(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+    data = query.data
+
+    if data.startswith("category_nav"):
+        page = int(data.split("_")[2])
+        await query.edit_message_reply_markup(reply_markup=get_categories_keyboard(page, CATEGORIES))
+        return CATEGORY_PAGE
+    elif data == "category_type":
+        await query.edit_message_text(
+            "✏️ Напишите название категории текстом. \n \n "
+            f"Доступные: {', '.join(CATEGORIES)}",
+            reply_markup=get_back_to_menu_keyboard()
+        )
+        return CATEGORY_TEXT
+    elif data.startswith("category_"):
+        category = data[9:]
+        return await save_expense_and_show_menu(update, context, category)
+
+    return ConversationHandler.END
+
+async def handle_category_text_input(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    text = update.message.text.strip().lower()
+
+    matches = [ category for category in CATEGORIES if text in category.lower() ]
+
+    if len(matches) == 1:
+        return await save_expense_and_show_menu(update, context, matches[0])
+    elif len(matches) > 1:
+        keyboard = [
+            [InlineKeyboardButton(match, callback_data=f"category_{ match }")] for match in matches
+        ]
+        await update.message.reply_text(
+            "Совпало несколько вариантов:",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+        return CATEGORY_PAGE
+    else:
+        await update.message.reply_text(
+            f"❌ Категория '{ text }' не найдена.",
+            reply_markup=get_back_to_menu_keyboard()
+        )
+        return CATEGORY_TEXT
+
 async def handle_action_btns(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     action = update.callback_query.data
 
@@ -223,7 +298,8 @@ def main() -> None:
         ],
         states={
             AMOUNT: [ MessageHandler(filters.TEXT & ~filters.COMMAND, get_amount) ],
-            CATEGORY: [ CallbackQueryHandler(select_category) ]
+            CATEGORY_PAGE: [ CallbackQueryHandler(handle_category_pagination, pattern="^category_") ],
+            CATEGORY_TEXT: [ MessageHandler(filters.TEXT & ~filters.COMMAND, handle_category_text_input) ]
         },
         fallbacks=[ CommandHandler('cancel', cancel) ]
     )

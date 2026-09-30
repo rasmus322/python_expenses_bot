@@ -53,10 +53,37 @@ def get_main_menu_keyboard() -> InlineKeyboardMarkup:
 def get_back_to_menu_keyboard() -> InlineKeyboardMarkup:
     return build_keyboard([("📋 В меню", "show_menu")], n_cols=1)
 
-def get_categories_keyboard(categories: list[str]) -> InlineKeyboardMarkup:
-    btns = [(category, category) for category in categories]
+def get_categories_keyboard(page: int, categories: list[str]) -> InlineKeyboardMarkup:
+    items_per_page = 4
+    total_pages = (len(categories) + items_per_page - 1) // items_per_page
 
-    return build_keyboard(btns)
+    start = page * items_per_page
+    end = start + items_per_page
+    page_categories = categories[start:end]
+
+    keyboard_rows = []
+
+    for i in range(0, len(page_categories), 2):
+        row = []
+        row.append(InlineKeyboardButton(page_categories[i], callback_data=f"category_{ page_categories[i] }"))
+        if i + 1 < len(page_categories):
+            row.append(InlineKeyboardButton(page_categories[i + 1], callback_data=f"category_{ page_categories[i + 1] }"))
+        keyboard_rows.append(row)
+
+    nav_row = []
+    if page > 0:
+        nav_row.append(InlineKeyboardButton("⬅️ Назад", callback_data=f"category_nav_{page - 1}"))
+    if page < total_pages - 1:
+        nav_row.append(InlineKeyboardButton("➡️ Вперед", callback_data=f"category_nav_{page + 1}"))
+
+    if nav_row:
+        keyboard_rows.append(nav_row)
+
+    keyboard_rows.append(
+        [InlineKeyboardButton("✏️ Написать название", callback_data="category_type")]
+    )
+
+    return InlineKeyboardMarkup(keyboard_rows)
 
 def get_graph_type_keyboard() -> InlineKeyboardMarkup:
     btns = [
