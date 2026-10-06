@@ -4,6 +4,7 @@ from telegram.ext import (
     Application, MessageHandler, CommandHandler, CallbackQueryHandler, 
     ConversationHandler, filters, ContextTypes
 )
+import traceback
 from config import BOT_TOKEN
 from constants import CATEGORIES
 from database import (
@@ -23,10 +24,20 @@ from utils import (
     get_clear_confirmation_keyboard
 )
 from graphing import create_bar_chart, create_pie_chart
+from validators import validate_expense_amount
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
 AMOUNT, CATEGORY_PAGE, CATEGORY_TEXT = range(3)
+
+async def global_error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+    logging.error("Exception while handling and update:", exc_info=context.error)
+
+    if update and isinstance(update, Update) and update.effective_message:
+        await update.effective_message.reply_text(
+            "Произошла непредвиденная ошибка на сервере."
+            "Попробуйте повторить позже."
+        )
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     await send_message(update, "Привет! Это бот для подсчета расходов. Введите сумму расхода:")
@@ -41,23 +52,24 @@ async def restart_expense(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     return AMOUNT
 
 async def get_amount(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    try:
-        amount = float(update.message.text.replace(',', '.'))
-        if amount <= 0:
-            raise ValueError
-        
-        context.user_data["amount"] = amount
+    is_valid, res = validate_expense_amount(update.message.text)
 
+    if not is_valid:
         await send_message(
             update,
-            f"Сумма: { amount }. Выберите категорию:", 
-            reply_markup=get_categories_keyboard(0, CATEGORIES)
+            f"{ res } \n\n Попробуйте еще раз, или используйте /cancel для отмены."
         )
-
-        return CATEGORY_PAGE
-    except ValueError:
-        await send_message(update, "Введите корректное положительное число. Попробуйте еще раз.")
         return AMOUNT
+
+    context.user_data["amount"] = res
+
+    await send_message(
+        update,
+        f"Сумма: {res:.2f}. Выберите категорию:",
+        reply_markup=get_categories_keyboard(0, CATEGORIES)
+    )
+
+    return CATEGORY_PAGE
 
 async def save_expense_and_show_menu(
         update: Update, 
@@ -329,6 +341,8 @@ def main() -> None:
     app.add_handler(CommandHandler('stats', stats))
     app.add_handler(CommandHandler('graph', graph))
     app.add_handler(CommandHandler('clear', request_clear_history))
+
+    app.add_error_handler(global_error_handler)
 
     app.run_polling(allowed_updates=Update.ALL_TYPES)
 
