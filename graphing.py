@@ -2,28 +2,9 @@ import matplotlib
 import matplotlib.pyplot as pyplot
 import io
 from datetime import date
+from constants import CATEGORY_COLORS, DEFAULT_COLOR
 
 matplotlib.use("Agg")
-
-CATEGORY_COLORS = {
-    "Продукты": "#2ECC71",
-    "Кафе": "#E67E22",
-    "Транспорт": "#3498DB",
-    "Жильё": "#95A5A6",
-    "Постоянные расходы": "#7F8C8D",
-    "Развлечения": "#9B59B6",
-    "Хобби": "#1ABC9C",
-    "Техника": "#34495E",
-    "Здоровье": "#27AE60",
-    "Красота": "#FF69B4",
-    "Одежда": "#E91E63",
-    "Путешествия": "#00BCD4",
-    "Вредные привычки": "#E74C3C",
-    "Дом и быт": "#8D6E63",
-    "Прочее": "#BDC3C7"
-}
-
-DEFAULT_COLOR = "#95A5A6" 
 
 def get_chart_title(min_date: date, max_date: date) -> str:
     if min_date == max_date:
@@ -74,7 +55,7 @@ def create_pie_chart(stats: dict, min_date: date, max_date: date) -> io.BytesIO:
 def create_bar_chart(stats: dict, min_date: date, max_date: date) -> io.BytesIO:
     categories = list(stats.keys())
     amounts = list(stats.values())
-    colors = ['#FF9999', '#66B2FF', '#99FF99', '#FFCC99', '#C2C2F0', '#FFB3E6', '#FFD700']
+    colors = [CATEGORY_COLORS.get(category, DEFAULT_COLOR) for category in categories]
 
     pyplot.rcParams['font.sans-serif'] = ['DejaVu Sans', 'Arial', 'sans-serif']
     pyplot.rcParams['axes.unicode_minus'] = False

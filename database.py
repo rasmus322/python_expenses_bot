@@ -26,14 +26,6 @@ def add_expense(user_id: int, amount: float, category: str) -> None:
     finally:
         session.close()
 
-def get_expenses(user_id: int) -> list[Expense]:
-    session = start_session()
-
-    try:
-        return session.query(Expense).filter(Expense.user_id == user_id).all()
-    finally:
-        session.close()
-
 def get_total_by_category(user_id: int) -> dict:
     session = start_session()
 
@@ -65,5 +57,15 @@ def get_expenses_stats(user_id: int) -> tuple[dict, date, date] | None:
         max_date = max(all_dates)
 
         return stats, min_date, max_date
+    finally:
+        session.close()
+
+def clear_user_expenses(user_id: int) -> int:
+    session = start_session()
+
+    try:
+        deleted_expenses = session.query(Expense).filter(Expense.user_id == user_id).delete()
+        session.commit()
+        return deleted_expenses
     finally:
         session.close()

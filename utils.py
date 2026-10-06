@@ -45,7 +45,7 @@ def get_main_menu_keyboard() -> InlineKeyboardMarkup:
         ("➕ Новый расход", "cmd_start"),
         ("📊 Статистика", "cmd_stats"),
         ("📈 График", "cmd_graph"),
-        ("❌ Отмена", "cmd_cancel")
+        ("🗑 Очистить историю", "cmd_clear")
     ]
 
     return build_keyboard(btns)
@@ -100,3 +100,11 @@ def get_graph_action_keyboard() -> InlineKeyboardMarkup:
     ]
 
     return build_keyboard(btns)
+
+def get_clear_confirmation_keyboard() -> InlineKeyboardMarkup:
+    btns = [
+        ("✅ Да, удалить все", "confirm_clear"),
+        ("❌ Нет, отмена", "cancel_clear")
+    ]
+
+    return build_keyboard(btns, n_cols=1)

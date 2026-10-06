@@ -5,36 +5,28 @@ from telegram.ext import (
     ConversationHandler, filters, ContextTypes
 )
 from config import BOT_TOKEN
-from database import create_database, add_expense, get_total_by_category, get_expenses_stats
+from constants import CATEGORIES
+from database import (
+    create_database, 
+    add_expense, 
+    get_total_by_category, 
+    get_expenses_stats,
+    clear_user_expenses
+)
 from utils import (
     send_message,
     get_main_menu_keyboard,
     get_back_to_menu_keyboard,
     get_categories_keyboard,
     get_graph_type_keyboard,
-    get_graph_action_keyboard
+    get_graph_action_keyboard,
+    get_clear_confirmation_keyboard
 )
 from graphing import create_bar_chart, create_pie_chart
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
 AMOUNT, CATEGORY_PAGE, CATEGORY_TEXT = range(3)
-CATEGORIES = [
-    "Продукты",
-    "Транспорт", 
-    "Развлечения",
-    "Техника",
-    "Хобби",
-    "Здоровье",
-    "Вредные привычки",
-    "Одежда",
-    "Кафе",
-    "Красота",
-    "Путешествия",
-    "Дом и быт",
-    "Постоянные расходы",
-    "Прочее"
-]
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     await send_message(update, "Привет! Это бот для подсчета расходов. Введите сумму расхода:")
@@ -56,42 +48,16 @@ async def get_amount(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         
         context.user_data["amount"] = amount
 
-        await update.message.reply_text(
+        await send_message(
+            update,
             f"Сумма: { amount }. Выберите категорию:", 
             reply_markup=get_categories_keyboard(0, CATEGORIES)
         )
 
         return CATEGORY_PAGE
     except ValueError:
-        await update.message.reply_text(f"Введите корректное положительное число. Попробуйте еще раз.")
+        await send_message(update, "Введите корректное положительное число. Попробуйте еще раз.")
         return AMOUNT
-
-async def select_category(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    category = update.callback_query.data
-    amount = context.user_data.get('amount')
-    user_id = update.effective_user.id
-
-    if not amount:
-        await send_message(update, "Произошла ошибка. Начните с команды /start")
-        return ConversationHandler.END
-
-    add_expense(user_id, amount, category)
-    context.user_data.clear()
-
-    text = (
-        "Расход записан! \n" 
-        f"Сумма: { amount } \n" 
-        f"Категория: { category }"
-    )
-    
-    await send_message(
-        update,
-        text,
-        reply_markup=get_main_menu_keyboard()
-    )
-
-
-    return ConversationHandler.END
 
 async def save_expense_and_show_menu(
         update: Update, 
@@ -108,6 +74,16 @@ async def save_expense_and_show_menu(
 
     return ConversationHandler.END
 
+async def request_clear_history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await send_message(
+        update,
+        "Это действие удалит записи всех ваших расходов<b>!!!</b> \n"
+        "Статистика и графики будут обнулены. \n \n"
+        "Вы уверены?",
+        reply_markup=get_clear_confirmation_keyboard(),
+        parse_mode="HTML"
+    )
+
 ######
 
 async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -116,7 +92,7 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not stats_dict:
         text = (
             "У вас нет записанных расходов! \n "
-            "Ипользуйте /start чтобы записать расход."
+            "Ипользуйте кнопку '➕ Новый расход' чтобы записать расход."
         )
         await send_message(
             update,
@@ -270,8 +246,29 @@ async def handle_category_text_input(update: Update, context: ContextTypes.DEFAU
         )
         return CATEGORY_TEXT
 
+async def handle_clear_confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.answer()
+
+    user_id = update.effective_user.id
+
+    if query.data == "confirm_clear":
+        deleted_count = clear_user_expenses(user_id)
+        await query.edit_message_text(
+            f"🗑 История расходов успешно очищена.\n Удалено записей: { deleted_count }",
+            reply_markup=get_main_menu_keyboard()
+        )
+    elif query.data == "cancel_clear":
+        await query.edit_message_text(
+            "Удаление отменено.",
+            reply_markup=get_main_menu_keyboard()
+        )
+
+
 async def handle_action_btns(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    action = update.callback_query.data
+    query = update.callback_query
+    await query.answer()
+    action = query.data
 
     if action == "show_menu":
         await menu(update, context)
@@ -281,6 +278,8 @@ async def handle_action_btns(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await stats(update, context)
     elif action == "cmd_graph":
         await graph(update, context)
+    elif action == "cmd_clear":
+        await request_clear_history(update, context)
     elif action == "cmd_cancel":
         await cancel(update, context)
 
@@ -308,7 +307,7 @@ def main() -> None:
 
     app.add_handler(CallbackQueryHandler(
         handle_action_btns, 
-        pattern="^(show_menu|cmd_start|cmd_stats|cmd_graph|cmd_cancel)$"
+        pattern="^(show_menu|cmd_start|cmd_stats|cmd_graph|cmd_cancel|cmd_clear)$"
     ))
 
     app.add_handler(CallbackQueryHandler(
@@ -321,9 +320,15 @@ def main() -> None:
         pattern="^(graph_choose|show_menu)$"
     ))
 
+    app.add_handler(CallbackQueryHandler(
+        handle_clear_confirmation,
+        pattern="^(confirm_clear|cancel_clear)$"
+    ))
+
     app.add_handler(CommandHandler('menu', menu))
     app.add_handler(CommandHandler('stats', stats))
     app.add_handler(CommandHandler('graph', graph))
+    app.add_handler(CommandHandler('clear', request_clear_history))
 
     app.run_polling(allowed_updates=Update.ALL_TYPES)
 
