@@ -12,6 +12,9 @@ def get_chart_title(min_date: date, max_date: date) -> str:
     return f"График расходов за { min_date.strftime('%d.%m.%Y') } - { max_date.strftime('%d.%m.%Y') }"
 
 def create_pie_chart(stats: dict, min_date: date, max_date: date) -> io.BytesIO:
+    if not stats:
+        return None
+
     categories = list(stats.keys())
     amounts = list(stats.values())
     colors = [CATEGORY_COLORS.get(category, DEFAULT_COLOR) for category in categories]
@@ -53,6 +56,9 @@ def create_pie_chart(stats: dict, min_date: date, max_date: date) -> io.BytesIO:
     return buf
 
 def create_bar_chart(stats: dict, min_date: date, max_date: date) -> io.BytesIO:
+    if not stats:
+        return None
+
     categories = list(stats.keys())
     amounts = list(stats.values())
     colors = [CATEGORY_COLORS.get(category, DEFAULT_COLOR) for category in categories]

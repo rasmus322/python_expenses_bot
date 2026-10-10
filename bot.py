@@ -31,7 +31,7 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 AMOUNT, CATEGORY_PAGE, CATEGORY_TEXT = range(3)
 
 async def global_error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
-    logging.error("Exception while handling and update:", exc_info=context.error)
+    logging.error("Exception while handling an update:", exc_info=context.error)
 
     if update and isinstance(update, Update) and update.effective_message:
         await update.effective_message.reply_text(

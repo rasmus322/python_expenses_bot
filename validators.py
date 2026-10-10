@@ -9,7 +9,7 @@ def validate_expense_amount(text: str) -> tuple[bool, float | str]:
         return False, "Это не число, введите число!"
 
     if math.isnan(amount):
-        return False, "Неккоректное числовое значение!"
+        return False, "Некорректное числовое значение!"
 
     if math.isinf(amount):
         return False, "Сумма не может быть бесконечностью!"
