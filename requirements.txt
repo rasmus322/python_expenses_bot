@@ -23,7 +23,7 @@ pytest==9.1.1
 pytest-cov==7.1.0
 python-dateutil==2.9.0.post0
 python-dotenv==1.2.3
-python-telegram-bot==22.8
+python-telegram-bot[webhooks]==22.8
 six==1.17.0
 SQLAlchemy==2.1.1
 typing_extensions==4.16.0
