@@ -30,11 +30,12 @@ def get_total_by_category(user_id: int) -> dict:
     session = start_session()
 
     try:
-        expenses = session.query(Expense).filter(Expense.user_id == user_id).all()
-        stats = {}
-        for expense in expenses:
-            stats[expense.category] = stats.get(expense.category, 0) + expense.amount
-        return stats
+        res = session.query(
+            Expense.category, func.sum(Expense.amount)) \
+                .filter(Expense.user_id == user_id) \
+                .group_by(Expense.category).all()
+
+        return { category: float(total) for category, total in res }
     finally:
         session.close()
 
@@ -42,21 +43,20 @@ def get_expenses_stats(user_id: int) -> tuple[dict, date, date] | None:
     session = start_session()
 
     try:
-        expenses = session.query(Expense).filter(Expense.user_id == user_id).all()
-
-        if not expenses:
+        count = session.query(Expense).filter(Expense.user_id == user_id).count()
+        if count == 0:
             return None
 
-        stats = {}
+        sum_res = session.query(Expense.category, func.sum(Expense.amount)) \
+            .filter(Expense.user_id == user_id) \
+            .group_by(Expense.category).all()
 
-        for expense in expenses:
-            stats[expense.category] = stats.get(expense.category, 0) + expense.amount
+        stats = { category: float(total) for category, total in sum_res }
 
-        all_dates = [expense.date for expense in expenses if expense.date is not None]
-        min_date = min(all_dates)
-        max_date = max(all_dates)
+        date_res = session.query(func.min(Expense.date), func.max(Expense.date)) \
+            .filter(Expense.user_id == user_id).first()
 
-        return stats, min_date, max_date
+        return stats, date_res[0], date_res[1]
     finally:
         session.close()
 

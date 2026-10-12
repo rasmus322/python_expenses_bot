@@ -3,7 +3,7 @@ import os
 import sys
 import io
 from datetime import date
-from graphing import create_bar_chart, create_pie_chart
+from graphing import create_bar_chart, create_pie_chart, get_chart_title
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
@@ -31,3 +31,14 @@ def test_empty_stats():
     res = create_pie_chart({}, date.today(), date.today())
 
     assert res is None
+
+def test_get_chart_title_same_day():
+    d = date(2026, 10, 10)
+    
+    assert get_chart_title(d, d) == "График расходов за 10.10.2026"
+
+def test_get_chart_title_range():
+    d1 = date(2026, 10, 10)
+    d2 = date(2026, 10, 15)
+
+    assert get_chart_title(d1, d2) == "График расходов за 10.10.2026 - 15.10.2026"
