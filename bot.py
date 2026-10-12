@@ -345,7 +345,7 @@ def main() -> None:
 
     app.add_error_handler(global_error_handler)
 
-    webhook_url = "https://dashboard.render.com/web/srv-db6be2jrjlhs73fk2h5g"
+    webhook_url = "https://python-expenses-bot.onrender.com"
 
     app.run_webhook(
         listen="0.0.0.0",
