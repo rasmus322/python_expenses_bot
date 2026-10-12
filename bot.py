@@ -1,3 +1,4 @@
+import os
 import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
@@ -343,6 +344,16 @@ def main() -> None:
     app.add_handler(CommandHandler('clear', request_clear_history))
 
     app.add_error_handler(global_error_handler)
+
+    webhook_url = "https://dashboard.render.com/web/srv-db6be2jrjlhs73fk2h5g"
+
+    app.run_webhook(
+        listen="0.0.0.0",
+        port=int(os.environ.get("PORT", 10000)),
+        url_path=BOT_TOKEN,
+        webhook_url=f"{webhook_url}/{BOT_TOKEN}",
+        allowed_updates=Update.ALL_TYPES
+    )
 
     app.run_polling(allowed_updates=Update.ALL_TYPES)
 
